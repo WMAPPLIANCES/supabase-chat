@@ -1,0 +1,17 @@
+# Volumes e dados do Docker
+volumes/
+dev/
+
+# Arquivos de ambiente com dados sensíveis
+.env
+env.txt
+env.exem
+
+# Arquivos temporários
+temp_service_key.txt
+*.tmp
+*.log
+
+# Dados do banco
+*.sql
+*.dump 
