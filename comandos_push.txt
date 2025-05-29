@@ -1,0 +1,22 @@
+# Comandos para fazer push para o repositório supabase-chat
+
+# 1. Verificar repositórios remotos atuais
+git remote -v
+
+# 2. Remover repositório anterior (se existir)
+git remote remove origin
+
+# 3. Adicionar novo repositório
+git remote add origin https://github.com/WMAPPLIANCES/supabase-chat.git
+
+# 4. Verificar se foi adicionado
+git remote -v
+
+# 5. Configurar branch principal
+git branch -M main
+
+# 6. Fazer push
+git push -u origin main
+
+# 7. Verificar se deu certo
+echo "✅ Push concluído para: https://github.com/WMAPPLIANCES/supabase-chat" 

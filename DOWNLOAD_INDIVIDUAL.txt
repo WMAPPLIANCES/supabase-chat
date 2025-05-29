@@ -1,0 +1,18 @@
+🚀 DOWNLOAD INDIVIDUAL - SUPER RÁPIDO!
+
+📥 Baixe apenas os 4 arquivos essenciais:
+
+scp root@66.94.126.120:/root/supabase/README.md .
+scp root@66.94.126.120:/root/supabase/docker-compose.yml .
+scp root@66.94.126.120:/root/supabase/env.example .
+scp root@66.94.126.120:/root/supabase/.gitignore .
+
+✅ PRONTO! Apenas 4 arquivos pequenos!
+
+📋 O que cada arquivo faz:
+- README.md (3KB) - Documentação
+- docker-compose.yml (14KB) - Configuração Supabase  
+- env.example (5KB) - Variáveis de ambiente
+- .gitignore (4KB) - Exclusões git
+
+🎯 Total: ~26KB - Download em segundos! 

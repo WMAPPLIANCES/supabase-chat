@@ -1,0 +1,10 @@
+🚀 COMANDO PARA DOWNLOAD DIRETO:
+
+scp root@66.94.126.120:/root/supabase/supabase-chat.tar.gz .
+
+📋 DEPOIS DO DOWNLOAD:
+
+mkdir supabase-chat && cd supabase-chat
+tar -xzf ../supabase-chat.tar.gz
+
+✅ PRONTO! Arquivos extraídos na pasta supabase-chat 
