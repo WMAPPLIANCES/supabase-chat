@@ -19,6 +19,10 @@ ls -la .git
 
 # 4. Verificar status do git
 git status
+
+# 5. Verificar configuração do git
+git config user.name
+git config user.email
 ```
 
 ### 🛠️ Soluções por Problema
@@ -39,10 +43,14 @@ cd /root/supabase
 git init
 ```
 
-#### Problema 3: Git não configurado
+#### Problema 3: Git não configurado OU email incorreto
 ```bash
 git config --global user.name "WM Appliances"
-git config --global user.email "admin@wmappliances.cloud"
+git config --global user.email "support@wmappliances.net"
+
+# Verificar se foi configurado corretamente
+git config user.name
+git config user.email
 ```
 
 #### Problema 4: Arquivos não adicionados
@@ -77,7 +85,7 @@ chmod +x fix_git_commit.sh
 - [ ] Git instalado e funcionando
 - [ ] Diretório correto (/root/supabase)
 - [ ] Repositório git inicializado
-- [ ] Git configurado com nome e email
+- [ ] Git configurado com nome e **email correto: support@wmappliances.net**
 - [ ] Arquivos adicionados ao staging
 - [ ] Commit realizado com sucesso
 
@@ -151,7 +159,7 @@ git status
 #### Opção 2: SSH Keys
 ```bash
 # Gerar chave SSH
-ssh-keygen -t ed25519 -C "admin@wmappliances.cloud"
+ssh-keygen -t ed25519 -C "support@wmappliances.net"
 
 # Adicionar ao ssh-agent
 eval "$(ssh-agent -s)"
@@ -168,12 +176,12 @@ cat ~/.ssh/id_ed25519.pub
 Se nada funcionar, execute estes comandos em sequência:
 
 ```bash
-# Reset completo
+# Reset completo com email correto
 cd /root/supabase
 rm -rf .git
 git init
 git config user.name "WM Appliances"
-git config user.email "admin@wmappliances.cloud"
+git config user.email "support@wmappliances.net"
 git add .
 git commit -m "Initial commit"
 git branch -M main
