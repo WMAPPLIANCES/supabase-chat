@@ -1,0 +1,133 @@
+# =================================================================
+# SUPABASE STACK SIMPLIFICADO - Deploy com Traefik
+# VPS: 66.94.126.120 - selfapi.wmappliances.cloud
+# =================================================================
+
+name: supabase-simple
+
+networks:
+  traefik:
+    external: true
+    name: easypanel
+  default:
+    driver: bridge
+
+volumes:
+  db-config:
+  db-data:
+  storage-data:
+
+services:
+
+  db:
+    image: supabase/postgres:15.8.1.060
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: WMApp2024PostgresSecurePassword123
+      POSTGRES_PASSWORD: WMApp2024PostgresSecurePassword123
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      JWT_EXP: 3600
+    command:
+      [
+        "postgres",
+        "-c",
+        "config_file=/etc/postgresql/postgresql.conf",
+        "-c",
+        "log_min_messages=fatal"
+      ]
+
+  vector:
+    image: timberio/vector:0.28.1-alpine
+    restart: unless-stopped
+    volumes:
+      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://vector:9001/health"
+        ]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      LOGFLARE_API_KEY: WMApp2024LogflareSecureKey123456789
+    command: ["--config", "/etc/vector/vector.yml"]
+
+  imgproxy:
+    image: darthsim/imgproxy:v3.8.0
+    restart: unless-stopped
+    volumes:
+      - storage-data:/var/lib/storage
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: true
+
+  meta:
+    image: supabase/postgres-meta:v0.89.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: WMApp2024PostgresSecurePassword123
+
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    networks:
+      - default
+      - traefik
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      DASHBOARD_USERNAME: supabase
+      DASHBOARD_PASSWORD: WMApp2024DashboardSecure
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.supabase-api.rule=Host(`selfapi.wmappliances.cloud`)"
+      - "traefik.http.routers.supabase-api.entrypoints=https"
+      - "traefik.http.routers.supabase-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.supabase-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=easypanel" 
