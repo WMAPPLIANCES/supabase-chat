@@ -1,0 +1,396 @@
+# =================================================================
+# SUPABASE STACK - Deploy direto com Traefik
+# VPS: 66.94.126.120 - selfapi.wmappliances.cloud
+# =================================================================
+
+version: '3.8'
+
+networks:
+  traefik:
+    external: true
+    name: easypanel
+  supabase:
+    driver: overlay
+
+volumes:
+  supabase_db_data:
+    driver: local
+  supabase_db_config:
+    driver: local
+  supabase_storage:
+    driver: local
+  supabase_functions:
+    driver: local
+
+services:
+
+  db:
+    image: supabase/postgres:15.8.1.060
+    networks:
+      - supabase
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+      - supabase_db_config:/etc/postgresql-custom
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:ro
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:ro
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:ro
+      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:ro
+      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: WMApp2024PostgresSecurePassword123!
+      POSTGRES_PASSWORD: WMApp2024PostgresSecurePassword123!
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      JWT_EXP: 3600
+    command:
+      - "postgres"
+      - "-c"
+      - "config_file=/etc/postgresql/postgresql.conf"
+      - "-c"
+      - "log_min_messages=fatal"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+  vector:
+    image: timberio/vector:0.28.1-alpine
+    networks:
+      - supabase
+    volumes:
+      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9001/health"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    environment:
+      LOGFLARE_API_KEY: WMApp2024LogflareSecureKey123456789
+    command: ["--config", "/etc/vector/vector.yml"]
+    deploy:
+      replicas: 1
+
+  analytics:
+    image: supabase/logflare:1.12.0
+    networks:
+      - supabase
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:4000/health"]
+      timeout: 10s
+      interval: 30s
+      retries: 10
+    depends_on:
+      - db
+    environment:
+      LOGFLARE_NODE_HOST: 127.0.0.1
+      DB_USERNAME: supabase_admin
+      DB_DATABASE: _supabase
+      DB_HOSTNAME: db
+      DB_PORT: 5432
+      DB_PASSWORD: WMApp2024PostgresSecurePassword123!
+      DB_SCHEMA: _analytics
+      LOGFLARE_API_KEY: WMApp2024LogflareSecureKey123456789
+      LOGFLARE_SINGLE_TENANT: "true"
+      LOGFLARE_SUPABASE_MODE: "true"
+      LOGFLARE_MIN_CLUSTER_SIZE: 1
+      POSTGRES_BACKEND_URL: postgresql://supabase_admin:WMApp2024PostgresSecurePassword123!@db:5432/_supabase
+      POSTGRES_BACKEND_SCHEMA: _analytics
+      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
+    deploy:
+      replicas: 1
+
+  auth:
+    image: supabase/gotrue:v2.172.1
+    networks:
+      - supabase
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    depends_on:
+      - db
+      - analytics
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: https://selfapi.wmappliances.cloud
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:WMApp2024PostgresSecurePassword123!@db:5432/postgres
+      GOTRUE_SITE_URL: https://selfapi.wmappliances.cloud
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@wmappliances.cloud
+      GOTRUE_SMTP_SENDER_NAME: WM Appliances
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/invite
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/confirm
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/reset-password
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/confirm
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
+    deploy:
+      replicas: 1
+
+  rest:
+    image: postgrest/postgrest:latest
+    networks:
+      - supabase
+    depends_on:
+      - db
+      - analytics
+    environment:
+      PGRST_DB_URI: postgres://authenticator:WMApp2024PostgresSecurePassword123!@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
+    command: ["postgrest"]
+    deploy:
+      replicas: 1
+
+  realtime:
+    image: supabase/realtime:v2.34.47
+    networks:
+      - supabase
+    depends_on:
+      - db
+      - analytics
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "-H", "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo", "http://localhost:4000/api/tenants/realtime-dev/health"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: WMApp2024PostgresSecurePassword123!
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      SECRET_KEY_BASE: WMAppliances2024SuperSecureKeyForSupavisorPoolingSystem123456789
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+    deploy:
+      replicas: 1
+
+  imgproxy:
+    image: darthsim/imgproxy:v3.8.0
+    networks:
+      - supabase
+    volumes:
+      - supabase_storage:/var/lib/storage
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+    deploy:
+      replicas: 1
+
+  storage:
+    image: supabase/storage-api:v1.22.17
+    networks:
+      - supabase
+    volumes:
+      - supabase_storage:/var/lib/storage
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    depends_on:
+      - db
+      - rest
+      - imgproxy
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      DATABASE_URL: postgres://supabase_storage_admin:WMApp2024PostgresSecurePassword123!@db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "true"
+      IMGPROXY_URL: http://imgproxy:5001
+    deploy:
+      replicas: 1
+
+  meta:
+    image: supabase/postgres-meta:v0.89.0
+    networks:
+      - supabase
+    depends_on:
+      - db
+      - analytics
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: WMApp2024PostgresSecurePassword123!
+    deploy:
+      replicas: 1
+
+  functions:
+    image: supabase/edge-runtime:v1.67.4
+    networks:
+      - supabase
+    volumes:
+      - supabase_functions:/home/deno/functions
+    depends_on:
+      - analytics
+    environment:
+      JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      SUPABASE_DB_URL: postgresql://postgres:WMApp2024PostgresSecurePassword123!@db:5432/postgres
+      VERIFY_JWT: "false"
+    command: ["start", "--main-service", "/home/deno/functions/main"]
+    deploy:
+      replicas: 1
+
+  supavisor:
+    image: supabase/supavisor:2.5.1
+    networks:
+      - supabase
+    volumes:
+      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://127.0.0.1:4000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      - db
+      - analytics
+    environment:
+      PORT: 4000
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: WMApp2024PostgresSecurePassword123!
+      DATABASE_URL: ecto://supabase_admin:WMApp2024PostgresSecurePassword123!@db:5432/_supabase
+      CLUSTER_POSTGRES: "true"
+      SECRET_KEY_BASE: WMAppliances2024SuperSecureKeyForSupavisorPoolingSystem123456789
+      VAULT_ENC_KEY: WMApp2024VaultEncryptionKey32
+      API_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      METRICS_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      REGION: local
+      ERL_AFLAGS: -proto_dist inet_tcp
+      POOLER_TENANT_ID: default
+      POOLER_DEFAULT_POOL_SIZE: 10
+      POOLER_MAX_CLIENT_CONN: 100
+      POOLER_POOL_MODE: transaction
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "/app/bin/migrate && /app/bin/supavisor eval \"$$(cat /etc/pooler/pooler.exs)\" && /app/bin/server"
+    deploy:
+      replicas: 1
+
+  kong:
+    image: kong:2.8.1
+    networks:
+      - supabase
+      - traefik
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
+    depends_on:
+      - analytics
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      DASHBOARD_USERNAME: supabase
+      DASHBOARD_PASSWORD: WMApp2024DashboardSecure!
+    entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.supabase-api.rule=Host(`selfapi.wmappliances.cloud`)"
+        - "traefik.http.routers.supabase-api.entrypoints=https"
+        - "traefik.http.routers.supabase-api.tls.certresolver=letsencrypt"
+        - "traefik.http.services.supabase-api.loadbalancer.server.port=8000"
+        - "traefik.docker.network=easypanel"
+
+  studio:
+    image: supabase/studio:2025.05.19-sha-3487831
+    networks:
+      - supabase
+      - traefik
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      timeout: 10s
+      interval: 30s
+      retries: 3
+    depends_on:
+      - analytics
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: WMApp2024PostgresSecurePassword123!
+      DEFAULT_ORGANIZATION_NAME: WM Appliances
+      DEFAULT_PROJECT_NAME: Supabase Chat
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: https://selfapi.wmappliances.cloud
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      AUTH_JWT_SECRET: WMAppliances2024SecureJWTSecretKey123456
+      LOGFLARE_API_KEY: WMApp2024LogflareSecureKey123456789
+      LOGFLARE_URL: http://analytics:4000
+      NEXT_PUBLIC_ENABLE_LOGS: "true"
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.supabase-studio.rule=Host(`studio.selfapi.wmappliances.cloud`)"
+        - "traefik.http.routers.supabase-studio.entrypoints=https"
+        - "traefik.http.routers.supabase-studio.tls.certresolver=letsencrypt"
+        - "traefik.http.services.supabase-studio.loadbalancer.server.port=3000"
+        - "traefik.docker.network=easypanel" 
