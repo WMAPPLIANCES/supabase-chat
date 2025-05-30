@@ -55,7 +55,7 @@ O arquivo `chatwoot_config.json` é gerado automaticamente com as configuraçõe
 | Serviço | Porta | URL | Descrição |
 |---------|-------|-----|-----------|
 | Kong Gateway | 8000 | http://localhost:8000 | API Gateway principal |
-| Supabase Studio | 3000 | http://localhost:3000 | Interface de administração |
+| Supabase Studio | 3001 | http://localhost:3001 | Interface de administração |
 | PostgreSQL | 5432 | localhost:5432 | Banco de dados |
 
 ## 📊 Monitoramento
@@ -79,7 +79,7 @@ docker compose logs -f auth
 curl http://localhost:8000/health
 
 # Verificar Studio
-curl http://localhost:3000/api/platform/profile
+curl http://localhost:3001/api/platform/profile
 ```
 
 ## 🔧 Configurações Avançadas
@@ -174,7 +174,7 @@ docker compose exec -T db psql -U postgres postgres < backup.sql
 
 3. **Studio não carrega**
    - Verifique os logs: `docker compose logs studio`
-   - Verifique se a porta 3000 está disponível
+   - Verifique se a porta 3001 está disponível
 
 ### Logs Úteis
 
@@ -241,4 +241,4 @@ Para problemas específicos da integração:
 
 **Última atualização**: $(date)
 **Timezone**: Los Angeles
-**Versão**: 1.0.0 
+**Versão**: 1.0.0

@@ -56,7 +56,7 @@ echo "🚀 Para iniciar o Supabase:"
 echo "   docker compose up -d"
 echo ""
 echo "📊 Para acessar o Studio:"
-echo "   http://localhost:3000"
+echo "   http://localhost:3001"
 echo ""
 
 # Criar arquivo de configuração do Chatwoot
