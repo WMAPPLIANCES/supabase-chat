@@ -38,10 +38,10 @@ services:
       AUTH_JWT_SECRET: ${JWT_SECRET}
 
       LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
-      LOGFLARE_URL: http://analytics:4000
-      NEXT_PUBLIC_ENABLE_LOGS: true
+      # LOGFLARE_URL: http://analytics:4000
+      NEXT_PUBLIC_ENABLE_LOGS: false
       # Comment to use Big Query backend for analytics
-      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      # NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
       # Uncomment to use Big Query backend for analytics
       # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
 
@@ -312,34 +312,35 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command: ["edge-runtime", "start", "--main-service", "/home/deno/functions", "--event-worker", "/home/deno/functions"]
 
-  # ANALYTICS REATIVADO COM SCHEMA CRIADO
-  analytics:
-    image: supabase/logflare:1.4.0
-    healthcheck:
-      test: ["CMD", "curl", "http://localhost:4000/health"]
-      timeout: 10s
-      interval: 10s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-    environment:
-      LOGFLARE_NODE_HOST: 127.0.0.1
-      DB_USERNAME: supabase_admin
-      DB_DATABASE: ${POSTGRES_DB}
-      DB_HOSTNAME: ${POSTGRES_HOST}
-      DB_PORT: ${POSTGRES_PORT}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_SCHEMA: _analytics
-      LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
-      LOGFLARE_SINGLE_TENANT: true
-      LOGFLARE_SUPABASE_MODE: true
-      LOGFLARE_MIN_CLUSTER_SIZE: 1
-      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-      POSTGRES_BACKEND_SCHEMA: _analytics
-      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
+  # ANALYTICS DESABILITADO - PROBLEMA DE SCHEMA MIGRATIONS
+  # O Logflare está tentando criar tabelas no schema público em vez do _analytics
+  # analytics:
+  #   image: supabase/logflare:1.4.0
+  #   healthcheck:
+  #     test: ["CMD", "curl", "http://localhost:4000/health"]
+  #     timeout: 10s
+  #     interval: 10s
+  #     retries: 3
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       # Disable this if you are using an external Postgres database
+  #       condition: service_healthy
+  #   environment:
+  #     LOGFLARE_NODE_HOST: 127.0.0.1
+  #     DB_USERNAME: supabase_admin
+  #     DB_DATABASE: ${POSTGRES_DB}
+  #     DB_HOSTNAME: ${POSTGRES_HOST}
+  #     DB_PORT: ${POSTGRES_PORT}
+  #     DB_PASSWORD: ${POSTGRES_PASSWORD}
+  #     DB_SCHEMA: _analytics
+  #     LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
+  #     LOGFLARE_SINGLE_TENANT: true
+  #     LOGFLARE_SUPABASE_MODE: true
+  #     LOGFLARE_MIN_CLUSTER_SIZE: 1
+  #     POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+  #     POSTGRES_BACKEND_SCHEMA: _analytics
+  #     LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
 
   db:
     # Use postgres:15 instead if you are on an old M1 Mac.
@@ -384,25 +385,25 @@ services:
       # Changes required for Analytics support
       - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
 
-  # VECTOR REATIVADO COM CONFIGURAÇÃO CORRIGIDA
-  vector:
-    image: timberio/vector:0.28.1-alpine
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://vector:9001/health"
-        ]
-      timeout: 10s
-      interval: 10s
-      retries: 3
-    volumes:
-      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
-      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
+  # VECTOR DESABILITADO - PROBLEMAS NO EASYPANEL COM DOCKER SOCKET
+  # vector:
+  #   image: timberio/vector:0.28.1-alpine
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD",
+  #         "wget",
+  #         "--no-verbose",
+  #         "--tries=1",
+  #         "--spider",
+  #         "http://vector:9001/health"
+  #       ]
+  #     timeout: 10s
+  #     interval: 10s
+  #     retries: 3
+  #   volumes:
+  #     - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+  #     - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
 
   supavisor:
     image: supabase/supavisor:2.4.12
