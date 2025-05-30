@@ -1,0 +1,4 @@
+#!/bin/bash
+git add .
+git commit -m "🔧 Corrigir versões Docker - GoTrue v2.151.0, Storage v1.6.8, Meta v0.83.2"
+git push origin main
