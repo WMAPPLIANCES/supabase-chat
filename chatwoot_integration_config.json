@@ -1,0 +1,69 @@
+{
+  "deployment": {
+    "type": "portainer",
+    "supabase_vps": "selfapi.wmappliances.cloud",
+    "chatwoot_vps": "external"
+  },
+  "supabase_config": {
+    "public_url": "https://selfapi.wmappliances.cloud",
+    "api_url": "https://selfapi.wmappliances.cloud",
+    "studio_url": "http://IP_DA_VPS_SUPABASE:3001",
+    "anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo",
+    "service_role_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+  },
+  "database_config": {
+    "external_url": "postgresql://postgres:WMApp2024PostgresSecurePassword123!@IP_DA_VPS_SUPABASE:5432/postgres",
+    "internal_url": "postgresql://postgres:WMApp2024PostgresSecurePassword123!@db:5432/postgres",
+    "host": "IP_DA_VPS_SUPABASE",
+    "port": 5432,
+    "database": "postgres",
+    "username": "postgres",
+    "password": "WMApp2024PostgresSecurePassword123!"
+  },
+  "chatwoot_integration": {
+    "required_env_vars": {
+      "SUPABASE_URL": "https://selfapi.wmappliances.cloud",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOuoJuXMiQTgr8VNjQQNMqZly4ox-PQdALPo",
+      "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+      "DATABASE_URL": "postgresql://postgres:WMApp2024PostgresSecurePassword123!@IP_DA_VPS_SUPABASE:5432/postgres"
+    },
+    "cors_origins": [
+      "https://selfapi.wmappliances.cloud",
+      "*"
+    ]
+  },
+  "firewall_requirements": {
+    "supabase_vps_ports": [
+      8000,
+      3001,
+      5432
+    ],
+    "description": "Portas que devem estar abertas na VPS do Supabase para conectividade externa"
+  },
+  "test_endpoints": {
+    "health_check": "https://selfapi.wmappliances.cloud/health",
+    "auth_endpoint": "https://selfapi.wmappliances.cloud/auth/v1/",
+    "rest_endpoint": "https://selfapi.wmappliances.cloud/rest/v1/",
+    "realtime_endpoint": "wss://selfapi.wmappliances.cloud/realtime/v1/",
+    "storage_endpoint": "https://selfapi.wmappliances.cloud/storage/v1/"
+  },
+  "deployment_instructions": {
+    "step_1": "Copiar pasta 'volumes' para VPS do Supabase",
+    "step_2": "Criar stack no Portainer com nome 'supabase-chat'",
+    "step_3": "Configurar variáveis de ambiente conforme DEPLOY_PORTAINER.md",
+    "step_4": "Usar docker-compose.portainer.yml como base da stack",
+    "step_5": "Deploy da stack e verificar logs",
+    "step_6": "Configurar firewall para liberar portas 8000, 3001, 5432",
+    "step_7": "Testar endpoints de conectividade",
+    "step_8": "Configurar Chatwoot na VPS externa com as credenciais"
+  },
+  "troubleshooting": {
+    "connection_issues": "Verificar firewall e conectividade entre VPS",
+    "container_issues": "Verificar logs no Portainer",
+    "database_issues": "Verificar credenciais e conectividade da porta 5432",
+    "auth_issues": "Verificar se as chaves JWT estão corretas"
+  },
+  "created_at": "2025-01-08T19:00:00Z",
+  "timezone": "America/Los_Angeles",
+  "version": "1.0.0"
+} 
