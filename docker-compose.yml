@@ -78,7 +78,7 @@ services:
       - ./volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
 
   auth:
-    image: supabase/gotrue:v2.175.0
+    image: supabase/gotrue:v2.151.0
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
