@@ -10,7 +10,7 @@ name: supabase
 services:
 
   studio:
-    image: supabase/studio:2025.05.19-sha-3487831
+    image: supabase/studio:latest
     restart: unless-stopped
     healthcheck:
       test:
